@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Family Task</title>
+  <link rel="stylesheet" href="./styles/index.css">
+</head>
+<body id="body">
+  
+  <img src="./images/logo.webp" alt="logo" height="130" width="130" class="logo">
+  <form class="login" id="loginForm">
+    <label for="name">Nome:</label>
+    <input type="text" id="name" name="name" required>
+    <label for="password">Senha:</label>
+    <input type="password" id="password" name="password" required>
+    <button id="logar">Entrar</button>
+  </form>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-lite.js';
+
+    const firebaseConfig = {
+      apiKey: "API_KEY",
+      authDomain: "task-65428.firebaseapp.com",
+      projectId: "task-65428",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    async function logar(event) {
+      event.preventDefault();
+
+      const usuario = document.getElementById('name').value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const docRef = doc(db, 'usuarios', usuario);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const senha = docSnap.data().senha;
+          if (senha === password) {
+            alert("Bem Vindo(a) "+ usuario)
+            carregarDashboard();
+          } else {
+            alert("Senha incorreta.");
+          }
+        } else {
+          alert("Usuário não encontrado.");
+        }
+      } catch (error) {
+        console.error('Erro ao obter a senha:', error);
+        alert('Erro ao obter a senha: ' + error);
+      }
+    }
+
+    document.getElementById("loginForm").addEventListener('submit', logar);
+
+    function carregarDashboard() {
+      const body = document.getElementById('body');
+      body.innerHTML = `
+        <header>
+          <img src="./images/logo.webp" alt="logo" height="130" width="130" class="logo">
+        </header>
+        <div class="dashboard" id="dashboard"></div>
+        <button class="addCardBtn" id="addCardBtn">Adicionar Nova Tarefa</button>
+      `;
+
+      loadTasks(); 
+      document.getElementById('addCardBtn').addEventListener('click', addNewCard);
+    }
+
+    async function loadTasks() {
+      const dashboard = document.getElementById('dashboard');
+      const tarefasCollection = collection(db, 'tarefas');
+      const tarefasSnapshot = await getDocs(tarefasCollection);
+      
+      dashboard.innerHTML = ''; 
+
+      tarefasSnapshot.forEach(doc => {
+        const tarefaData = doc.data();
+        const docId = doc.id;
+        const newCard = document.createElement('div');
+        newCard.classList.add('card');
+        newCard.innerHTML = `
+          <h1>${tarefaData.tarefa}</h1>
+          <p>Adicionado por ${tarefaData.adicionado}</p>
+          <button class="remove-button" data-id="${docId}">Remover</button>
+        `;
+        dashboard.appendChild(newCard);
+
+        const removeBtn = newCard.querySelector('.remove-button');
+        addRemoveEvent(removeBtn);
+      });
+    }
+
+    async function addRemoveEvent(button) {
+      button.addEventListener('click', async function() {
+        const card = this.closest('.card');
+        const taskId = this.getAttribute('data-id');
+        if (taskId) {
+          await deleteDoc(doc(db, 'tarefas', taskId));
+          card.remove();
+        }
+      });
+    }
+
+    async function addNewCard() {
+      const tarefa = prompt("Digite a nova tarefa:");
+      const adicionado = prompt("Quem adicionou a tarefa?");
+      
+      if (tarefa && adicionado) {
+        const docRef = await addDoc(collection(db, "tarefas"), { tarefa, adicionado });
+        const dashboard = document.getElementById('dashboard');
+        const newCard = document.createElement('div');
+        newCard.classList.add('card');
+        newCard.innerHTML = `
+          <h1>${tarefa}</h1>
+          <p>Adicionado por ${adicionado}</p>
+          <button class="remove-button" data-id="${docRef.id}">Remover</button>
+        `;
+        dashboard.appendChild(newCard);
+
+        const removeBtn = newCard.querySelector('.remove-button');
+        addRemoveEvent(removeBtn);
+      } else {
+        alert("Por favor, preencha todos os campos.");
+      }
+    }
+  </script>
+</body>
+</html>
